@@ -33,6 +33,17 @@ class _MyHomePageState extends State<MyHomePage> {
 
   final emailTextController = TextEditingController();
   final passwordTextController = TextEditingController();
+  bool _isLoggedIn = false;
+  String _photoUrl = '';
+  String _loginType = '';
+
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'email'
+    ],
+  );
+  var facebookLogin = new FacebookLogin();
 
   @override
   void dispose() {
@@ -55,6 +66,16 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            Column(mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Image.network(_photoUrl, height: 50.0, width: 50.0,),
+                      Container(
+                        child: _isLoggedIn
+                        ? OutlineButton(child: Text('Logout - ${_loginType}'), onPressed: (){_logout();},)
+                        : Text('Não Logado')
+                      )
+                    ],
+            ),
             SizedBox(
               width: 360,
               child: TextFormField(
@@ -157,11 +178,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _googleSignUp() async {
     try {
-      final GoogleSignIn _googleSignIn = GoogleSignIn(
-        scopes: [
-          'email'
-        ],
-      );
       final FirebaseAuth _auth = FirebaseAuth.instance;
 
       final GoogleSignInAccount googleUser = await _googleSignIn.signIn();
@@ -175,6 +191,13 @@ class _MyHomePageState extends State<MyHomePage> {
       final FirebaseUser user = (await _auth.signInWithCredential(credential)).user;
 
       print("signed in " + user.displayName);
+      print('signed in ' + _googleSignIn.currentUser.photoUrl);
+
+      setState(() {
+        _isLoggedIn = true;
+        _photoUrl = _googleSignIn.currentUser.photoUrl;
+        _loginType = 'Google';
+      });
 
       return user;
     }catch (e) {
@@ -184,8 +207,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> signUpWithFacebook() async{
     try {
-      var facebookLogin = new FacebookLogin();
-      var result = await facebookLogin.logIn(['email']);
+      await facebookLogin.logOut();
+      var result = await facebookLogin.logIn(['email', 'public_profile']);
 
       if(result.status == FacebookLoginStatus.loggedIn) {
         final AuthCredential credential = FacebookAuthProvider.getCredential(
@@ -194,6 +217,12 @@ class _MyHomePageState extends State<MyHomePage> {
         );
         final FirebaseUser user = (await FirebaseAuth.instance.signInWithCredential(credential)).user;
         print('signed in ' + user.displayName);
+
+        setState(() {
+          _isLoggedIn = true;
+          _photoUrl = user.photoUrl;
+          _loginType = 'Facebook';
+        });
 
         return user;
       }
@@ -208,6 +237,13 @@ class _MyHomePageState extends State<MyHomePage> {
           email: emailTextController.text,
           password: passwordTextController.text
       );
+
+      setState(() {
+        _isLoggedIn = true;
+        _photoUrl = '';
+        _loginType = 'e-mail';
+      });
+
       showDialog(
           context: context,
         builder: (context) {
@@ -229,4 +265,23 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
   }
+
+  _logout(){
+    if (_isLoggedIn){
+      if (_loginType == 'Google'){
+        _googleSignIn.signOut();
+      }
+
+      if (_loginType == 'Facebook'){
+        facebookLogin.logOut(); //todo-este logout ainda não funciona
+      }
+    }
+
+    setState(() {
+      _isLoggedIn = false;
+      _photoUrl = '';
+      _loginType = '';
+    });
+  }
+
 }
